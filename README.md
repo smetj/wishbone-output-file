@@ -11,7 +11,7 @@
     wishbone.output.file
     ====================
 
-    Version: 0.1.0
+    Version: 1.0.0
 
     Writes events to a file
     -----------------------
