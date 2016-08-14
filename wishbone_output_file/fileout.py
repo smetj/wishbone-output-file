@@ -80,10 +80,9 @@ class FileOut(Actor):
         else:
             self.registerConsumer(self.consumeOpenClose, "inbox")
 
-
     def consumeOpenClose(self, event):
 
-        with f open(self.kwargs.location, "a"):
+        with open(self.kwargs.location, "a") as f:
             make_nonblocking(f)
 
             if isinstance(event, Bulk):
