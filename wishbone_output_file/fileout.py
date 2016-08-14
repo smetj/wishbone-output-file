@@ -50,6 +50,9 @@ class FileOut(Actor):
         - timestamp(bool)(False)
            |  If true prepends each line with a ISO8601 timestamp.
 
+        - keep_file_open(bool)(True)
+           |  Keeps the file open for writing or not.
+
 
     Queues:
 
@@ -58,11 +61,10 @@ class FileOut(Actor):
 
     '''
 
-    def __init__(self, actor_config, selection='@data', location="./wishbone.out", timestamp=False):
+    def __init__(self, actor_config, selection='@data', location="./wishbone.out", timestamp=False, keep_file_open=True):
         Actor.__init__(self, actor_config)
 
         self.pool.createQueue("inbox")
-        self.registerConsumer(self.consume, "inbox")
 
     def preHook(self):
 
@@ -71,10 +73,28 @@ class FileOut(Actor):
         else:
             self.getTimestamp = self.returnNoTimestamp
 
-        self.file = open(self.kwargs.location, "a")
-        make_nonblocking(self.file)
+        if self.kwargs.keep_file_open:
+            self.registerConsumer(self.consumeKeepOpen, "inbox")
+            self.file = open(self.kwargs.location, "a")
+            make_nonblocking(self.file)
+        else:
+            self.registerConsumer(self.consumeOpenClose, "inbox")
 
-    def consume(self, event):
+
+    def consumeOpenClose(self, event):
+
+        with f open(self.kwargs.location, "a"):
+            make_nonblocking(f)
+
+            if isinstance(event, Bulk):
+                data = event.dumpFieldAsString(self.kwargs.selection)
+            else:
+                data = str(event.get(self.kwargs.selection))
+
+            f.write("%s%s\n" % (self.getTimestamp(), data))
+            f.flush()
+
+    def consumeKeepOpen(self, event):
 
         if isinstance(event, Bulk):
             data = event.dumpFieldAsString(self.kwargs.selection)
@@ -94,4 +114,5 @@ class FileOut(Actor):
 
     def postHook(self):
 
-        self.file.close()
+        if self.kwargs.keep_file_open:
+            self.file.close()
