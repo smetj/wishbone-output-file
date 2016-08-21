@@ -44,7 +44,7 @@ class FileOut(Actor):
            |  The part of the event to submit externally.
            |  Use an empty string to refer to the complete event.
 
-        - location(str)("./wishbone.out")
+        - location(str)("./wishbone.out")*
            |  The location of the output file.
 
         - timestamp(bool)(False)
@@ -75,14 +75,14 @@ class FileOut(Actor):
 
         if self.kwargs.keep_file_open:
             self.registerConsumer(self.consumeKeepOpen, "inbox")
-            self.file = open(self.kwargs.location, "a")
+            self.file = open(str(self.kwargs.location), "a")
             make_nonblocking(self.file)
         else:
             self.registerConsumer(self.consumeOpenClose, "inbox")
 
     def consumeOpenClose(self, event):
 
-        with open(self.kwargs.location, "a") as f:
+        with open(str(self.kwargs.location), "a") as f:
             make_nonblocking(f)
 
             if isinstance(event, Bulk):
