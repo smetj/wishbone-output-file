@@ -25,7 +25,7 @@
 
 from wishbone import Actor
 from wishbone.event import Bulk
-from gevent.os import make_nonblocking
+from gevent.fileobject import FileObjectThread
 import arrow
 
 
@@ -44,13 +44,16 @@ class FileOut(Actor):
            |  The part of the event to submit externally.
            |  Use an empty string to refer to the complete event.
 
-        - location(str)("./wishbone.out")*
-           |  The location of the output file.
+        - directory(str)("./")
+           |  The directory to write the files to.
+
+        - filename(str)("wishbone.out")*
+           |  The filename to use.
 
         - timestamp(bool)(False)
            |  If true prepends each line with a ISO8601 timestamp.
 
-        - keep_file_open(bool)(True)
+        - keep_file_open(bool)(False)
            |  Keeps the file open for writing or not.
 
 
@@ -61,7 +64,7 @@ class FileOut(Actor):
 
     '''
 
-    def __init__(self, actor_config, selection='@data', location="./wishbone.out", timestamp=False, keep_file_open=True):
+    def __init__(self, actor_config, selection='@data', directory="./", filename="wishbone.out", timestamp=False, keep_file_open=False):
         Actor.__init__(self, actor_config)
 
         self.pool.createQueue("inbox")
@@ -75,23 +78,23 @@ class FileOut(Actor):
 
         if self.kwargs.keep_file_open:
             self.registerConsumer(self.consumeKeepOpen, "inbox")
-            self.file = open(str(self.kwargs.location), "a")
-            make_nonblocking(self.file)
+            f = open(str("%s/%s" % (self.kwargs.directory, self.kwargs.filename)), "a")
+            self.file = FileObjectThread(f)
         else:
             self.registerConsumer(self.consumeOpenClose, "inbox")
 
     def consumeOpenClose(self, event):
 
-        with open(str(self.kwargs.location), "a") as f:
-            make_nonblocking(f)
+        with open(str("%s/%s" % (self.kwargs.directory, self.kwargs.filename)), "a") as f:
+            file_object_thread = FileObjectThread(f)
 
             if isinstance(event, Bulk):
                 data = event.dumpFieldAsString(self.kwargs.selection)
             else:
                 data = str(event.get(self.kwargs.selection))
 
-            f.write("%s%s\n" % (self.getTimestamp(), data))
-            f.flush()
+            file_object_thread.write("%s%s\n" % (self.getTimestamp(), data))
+            file_object_thread.flush()
 
     def consumeKeepOpen(self, event):
 

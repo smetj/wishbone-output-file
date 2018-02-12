@@ -27,7 +27,7 @@ from setuptools.command.test import test as TestCommand
 import sys
 
 PROJECT = 'wishbone_output_file'
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 
 install_requires = [
     'wishbone>=2.1.1',
@@ -51,6 +51,7 @@ class PyTest(TestCommand):
         import pytest
         errcode = pytest.main(self.test_args)
         sys.exit(errcode)
+
 
 setup(
     name=PROJECT,
