@@ -117,3 +117,58 @@ def test_module_write_overwrite():
             os.unlink("/tmp/wishbone")
         except Exception:
             pass
+
+
+def test_module_write_prefix():
+
+    with open("/tmp/wishbone", "w") as f:
+        f.write("hello")
+
+    actor_config = ActorConfig('FileOut', 100, 1, {}, "", disable_exception_handling=True)
+    d = FileOut(actor_config, directory="/tmp", overwrite=True, prefix="prefix: ")
+    d.pool.queue.inbox.disableFallThrough()
+    d.start()
+
+    e = Event("cheers")
+    d.submit(e, "inbox")
+
+    sleep(1)
+    try:
+        with open('/tmp/wishbone', 'r') as f:
+            assert f.readlines() == ["prefix: cheers"]
+    except Exception as err:
+        assert False, err
+    else:
+        assert True
+    finally:
+        try:
+            os.unlink("/tmp/wishbone")
+        except Exception:
+            pass
+
+def test_module_write_suffix():
+
+    with open("/tmp/wishbone", "w") as f:
+        f.write("hello")
+
+    actor_config = ActorConfig('FileOut', 100, 1, {}, "", disable_exception_handling=True)
+    d = FileOut(actor_config, directory="/tmp", overwrite=True, suffix=" :suffix")
+    d.pool.queue.inbox.disableFallThrough()
+    d.start()
+
+    e = Event("cheers")
+    d.submit(e, "inbox")
+
+    sleep(1)
+    try:
+        with open('/tmp/wishbone', 'r') as f:
+            assert f.readlines() == ["cheers :suffix"]
+    except Exception as err:
+        assert False, err
+    else:
+        assert True
+    finally:
+        try:
+            os.unlink("/tmp/wishbone")
+        except Exception:
+            pass
