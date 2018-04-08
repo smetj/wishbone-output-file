@@ -56,10 +56,17 @@ class FileOut(OutputModule):
            |  The string to submit.
            |  If defined takes precedence over `selection`.
 
+        - prefix(str)(None)
+           |  Add the defined prefix to the outgoing data
+           |  after protocol encode.
+
         - selection(str)("data")*
            |  The part of the event to submit externally.
            |  Use an empty string to refer to the complete event.
 
+        - suffix(str)(None)
+           |  Adds the defined suffix to the outgoing data
+           |  after protocol encode.
 
     Queues::
 
@@ -68,7 +75,7 @@ class FileOut(OutputModule):
 
     '''
 
-    def __init__(self, actor_config, directory="./", filename="wishbone", native_events=False, parallel_streams=1, payload=None, selection='data', overwrite=False):
+    def __init__(self, actor_config, directory="./", filename="wishbone", native_events=False, parallel_streams=1, payload=None, prefix=None, selection='data', suffix=None, overwrite=False):
         OutputModule.__init__(self, actor_config)
         self.pool.createQueue("inbox")
         self.registerConsumer(self.consume, "inbox")
@@ -78,6 +85,18 @@ class FileOut(OutputModule):
 
         data = self.getDataToSubmit(event)
         data = self.encode(data)
+
+        if event.kwargs.prefix is not None:
+            if isinstance(data, bytes):
+                data = bytes(event.kwargs.prefix) + data
+            else:
+                data = event.kwargs.prefix + data
+
+        if event.kwargs.suffix is not None:
+            if isinstance(data, bytes):
+                data = data + bytes(event.kwargs.suffix)
+            else:
+                data = data + event.kwargs.suffix
 
         with self.file_lock:
             # TODO(smetj): Allow to write concurrently to <self.kwargs.parallel_streams> number of files.
