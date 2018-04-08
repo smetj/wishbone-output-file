@@ -1,0 +1,28 @@
+language: python
+python:
+- '3.6'
+install:
+- python setup.py install
+- pip install pytest
+script:
+- pytest -s -v tests/default.py
+after_success:
+- docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+- export REPO=smetj/wishbone-output-twitter
+- export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH
+  ; fi`
+- docker build -f Dockerfile -t $REPO:$TRAVIS_COMMIT --build-arg branch=$TRAVIS_BRANCH
+  .
+- docker tag $REPO:$TRAVIS_COMMIT $REPO:$TAG
+- docker tag $REPO:$TRAVIS_COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
+- docker push $REPO:$TAG
+- docker push $REPO:$TRAVIS_COMMIT
+notifications:
+  webhooks:
+    urls:
+      - secure: "EqWhQB1/yu1YnkmmsDhKM2FQPQxaZw6wEe5pcZYMbFEy4kfhyzpVBNCOXxxHNck+rzRnJz8ldyvs0zLtWfNesMMadhj12RweK8sCmgzR8TOXrGgwjjx9fpc9+Z7RkgokelHuHPsl2QxzA24xeE/nbl2S456l74H7RdH6h6C20ec4zY1RWLHVmierb7bpbztlA9qRxWbuG3O+GBbTdE2qCXfc+82wQ+9eWH5ROgqDA0IeGoIOlBVsNFWONzIXtdXDj2ehhrAmTeADfKlrA4vgjryQRS7v36u2bOetYhDkleVnpxlRc6+ibdvIIybx+DpB66AyHwbSVnDocm/rcvM2cOzfE83DHltjLx0u6ncitPHxIpkcU22+Y7xN0TFFm/q0uPTA+CBxtoZEd679QwWyKRENbG1zwIn+AKzQIfrUAfxDpUJt1QQRUqlXYDj/abdiv9BDXBBbbMj6KxNmZ7OUsUjWrW+I/vPapghdDGcTPUc3uG3zVqJ5MwfN7aRous6KD+OJC3uOp1KgpqWZGQw751K6pvv9czzJtmJm8v61Pciv9ezAj4dEGOoYnV7hOliKWExVBaZLbVBJFPxFPxB7iithMAOpUlWFhvP5PzhgRHYr0L0m2fffy7pLvmyMtlsKYvhNvHHkBcwlmMwC9sDHqltWEvLFJHqDZqQyMMvj/xo="
+    on_success: always
+    on_failure: always
+    on_start: always
+    on_cancel: always
+    on_error: always

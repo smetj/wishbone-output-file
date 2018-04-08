@@ -3,7 +3,7 @@
 #
 #  setup.py
 #
-#  Copyright 2016 Jelle Smet <development@smetj.net>
+#  Copyright 2018 Jelle Smet <development@smetj.net>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,10 +27,10 @@ from setuptools.command.test import test as TestCommand
 import sys
 
 PROJECT = 'wishbone_output_file'
-VERSION = '1.0.3'
+VERSION = '3.0.0'
 
 install_requires = [
-    'wishbone>=2.1.1',
+    'wishbone>=3.1.2',
 ]
 
 try:
@@ -68,8 +68,6 @@ setup(
     classifiers=['Development Status :: 5 - Production/Stable',
                  'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
                  'Programming Language :: Python',
-                 'Programming Language :: Python :: 2.7',
-                 'Programming Language :: Python :: Implementation :: PyPy',
                  'Intended Audience :: Developers',
                  'Intended Audience :: System Administrators',
                  ],
@@ -86,7 +84,7 @@ setup(
     packages=find_packages(),
     zip_safe=False,
     entry_points={
-        'wishbone.output': [
+        'wishbone_contrib.module.output': [
             'file=wishbone_output_file:FileOut',
         ]
     }

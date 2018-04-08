@@ -3,7 +3,7 @@
 #
 #  fileout.py
 #
-#  Copyright 2016 Jelle Smet <development@smetj.net>
+#  Copyright 2018 Jelle Smet <development@smetj.net>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,27 +22,18 @@
 #
 #
 
-
-from wishbone import Actor
-from wishbone.event import Bulk
+from wishbone.module import OutputModule
 from gevent.fileobject import FileObjectThread
-import arrow
+from gevent.lock import Semaphore
+
+# TODO(smetj): Implement way to keep files open when writing to improve speed.
 
 
-class FileOut(Actor):
+class FileOut(OutputModule):
+    '''
+    Writes events to a file.
 
-    '''**Writes events to a file**
-
-    Writes incoming events to a file.  Each line represents an event. Keep in
-    mind no rotation of the file is done so data is always appended to the end
-    of the file.
-
-
-    Parameters:
-
-        - selection(str)("@data")
-           |  The part of the event to submit externally.
-           |  Use an empty string to refer to the complete event.
+    Parameters::
 
         - directory(str)("./")
            |  The directory to write the files to.
@@ -50,71 +41,57 @@ class FileOut(Actor):
         - filename(str)("wishbone.out")*
            |  The filename to use.
 
-        - timestamp(bool)(False)
-           |  If true prepends each line with a ISO8601 timestamp.
+        - native_events(bool)(False)
+           |  Submit Wishbone native events.
 
-        - keep_file_open(bool)(False)
-           |  Keeps the file open for writing or not.
+        - overwrite(bool)(False)
+
+           |  If `True` overwrites each time the content otherwise appends to
+           |  the end of the file.
+
+        - parallel_streams(int)(1)
+           |  The number of outgoing parallel data streams.
+
+        - payload(str)(None)
+           |  The string to submit.
+           |  If defined takes precedence over `selection`.
+
+        - selection(str)("data")*
+           |  The part of the event to submit externally.
+           |  Use an empty string to refer to the complete event.
 
 
-    Queues:
+    Queues::
 
         - inbox
            |  Incoming messages
 
     '''
 
-    def __init__(self, actor_config, selection='@data', directory="./", filename="wishbone.out", timestamp=False, keep_file_open=False):
-        Actor.__init__(self, actor_config)
-
+    def __init__(self, actor_config, directory="./", filename="wishbone", native_events=False, parallel_streams=1, payload=None, selection='data', overwrite=False):
+        OutputModule.__init__(self, actor_config)
         self.pool.createQueue("inbox")
+        self.registerConsumer(self.consume, "inbox")
+        self.file_lock = Semaphore()
 
-    def preHook(self):
+    def consume(self, event):
 
-        if self.kwargs.timestamp:
-            self.getTimestamp = self.returnTimestamp
-        else:
-            self.getTimestamp = self.returnNoTimestamp
+        data = self.getDataToSubmit(event)
+        data = self.encode(data)
 
-        if self.kwargs.keep_file_open:
-            self.registerConsumer(self.consumeKeepOpen, "inbox")
-            f = open(str("%s/%s" % (self.kwargs.directory, self.kwargs.filename)), "a")
-            self.file = FileObjectThread(f)
-        else:
-            self.registerConsumer(self.consumeOpenClose, "inbox")
+        with self.file_lock:
+            # TODO(smetj): Allow to write concurrently to <self.kwargs.parallel_streams> number of files.
 
-    def consumeOpenClose(self, event):
+            if event.kwargs.overwrite:
+                with open("%s/%s" % (event.kwargs.directory, event.kwargs.filename), "w") as f:
+                    fo = FileObjectThread(f)
+                    fo.write(data)
+                    fo.close()
 
-        with open(str("%s/%s" % (self.kwargs.directory, self.kwargs.filename)), "a") as f:
-            file_object_thread = FileObjectThread(f)
-
-            if isinstance(event, Bulk):
-                data = event.dumpFieldAsString(self.kwargs.selection)
             else:
-                data = str(event.get(self.kwargs.selection))
+                with open("%s/%s" % (event.kwargs.directory, event.kwargs.filename), "a") as f:
+                    fo = FileObjectThread(f)
+                    fo.write(data)
+                    fo.close()
 
-            file_object_thread.write("%s%s\n" % (self.getTimestamp(), data))
-            file_object_thread.flush()
-
-    def consumeKeepOpen(self, event):
-
-        if isinstance(event, Bulk):
-            data = event.dumpFieldAsString(self.kwargs.selection)
-        else:
-            data = str(event.get(self.kwargs.selection))
-
-        self.file.write("%s%s\n" % (self.getTimestamp(), data))
-        self.file.flush()
-
-    def returnTimestamp(self):
-
-        return "%s: " % (arrow.now().isoformat())
-
-    def returnNoTimestamp(self):
-
-        return ""
-
-    def postHook(self):
-
-        if self.kwargs.keep_file_open:
-            self.file.close()
+            f.close()
